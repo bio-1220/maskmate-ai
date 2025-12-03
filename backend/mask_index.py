@@ -1,11 +1,12 @@
 """
 탈 이미지 인덱싱 모듈
 - masks/ 폴더의 모든 탈 이미지를 로드하고 임베딩 계산
+- flat 구조 (masks/각시_natural.jpg) 및 서브폴더 구조 모두 지원
 - 메모리에 캐싱
 """
 import os
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple, Optional
 from dataclasses import dataclass
 import numpy as np
 from PIL import Image
@@ -14,14 +15,55 @@ import torch
 from model import ExpressionResNet18, extract_embedding, EXPRESSION_CLASSES
 
 
+# 지원하는 이미지 확장자
+SUPPORTED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
+
+
 @dataclass
 class MaskInfo:
     """탈 정보를 담는 데이터 클래스"""
-    path: str           # 상대 경로 (masks/yangban/mask1.jpg)
-    name: str           # 탈 이름 (폴더명 기반)
+    path: str               # 상대 경로 (masks/각시_natural.jpg 또는 masks/yangban/mask1.jpg)
+    name: str               # 탈 이름 (파일명 또는 폴더명 기반)
     embedding: np.ndarray   # 512차원 임베딩
-    expression_idx: int     # 표정 인덱스
-    expression_label: str   # 표정 레이블
+    expression_idx: int     # 모델이 분류한 표정 인덱스
+    expression_label: str   # 모델이 분류한 표정 레이블
+    filename_expression: Optional[str] = None  # 파일명에서 추출한 표정 (디버그용)
+
+
+def parse_mask_filename(filename: str) -> Tuple[str, Optional[str]]:
+    """
+    파일명에서 마스크 이름과 표정을 파싱
+    
+    파일명 형식: "마스크이름_표정.확장자"
+    예: "각시_natural.jpg" → ("각시", "natural")
+        "양반_sad.png" → ("양반", "sad")
+        "처용탈.jpg" → ("처용탈", None)
+    
+    Args:
+        filename: 파일명 (확장자 포함)
+    
+    Returns:
+        (mask_name, expression_label or None)
+    """
+    # 확장자 제거
+    stem = Path(filename).stem
+    
+    # 마지막 "_"를 기준으로 분리
+    if '_' in stem:
+        # 마지막 "_" 위치 찾기
+        last_underscore = stem.rfind('_')
+        mask_name = stem[:last_underscore]
+        expression = stem[last_underscore + 1:].lower()
+        
+        # 유효한 표정인지 확인
+        valid_expressions = {'angry', 'happy', 'natural', 'sad'}
+        if expression in valid_expressions:
+            return mask_name, expression
+        else:
+            # "_"가 있지만 표정이 아닌 경우 (예: "하회_양반.jpg")
+            return stem, None
+    else:
+        return stem, None
 
 
 def build_mask_index(
@@ -32,11 +74,17 @@ def build_mask_index(
     """
     masks/ 폴더 아래의 모든 탈 이미지를 인덱싱
     
-    폴더 구조:
+    지원하는 폴더 구조:
+    1) Flat 구조:
+        masks/
+            각시_natural.jpg
+            양반_sad.jpg
+            ...
+    
+    2) 서브폴더 구조:
         masks/
             yangban/
                 yangban1.jpg
-                yangban2.png
             bune/
                 bune1.jpg
             ...
@@ -56,43 +104,62 @@ def build_mask_index(
         return []
     
     mask_index: List[MaskInfo] = []
-    supported_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
     
     print(f"탈 이미지 인덱싱 시작: {masks_dir}")
     
-    # 하위 폴더 순회 (각 폴더명 = 탈 종류)
-    for category_dir in sorted(masks_path.iterdir()):
-        if not category_dir.is_dir():
-            continue
-        
-        mask_name = category_dir.name
-        
-        for image_file in sorted(category_dir.iterdir()):
-            if image_file.suffix.lower() not in supported_extensions:
-                continue
+    # 모든 이미지 파일을 재귀적으로 찾기
+    image_files = []
+    for ext in SUPPORTED_EXTENSIONS:
+        image_files.extend(masks_path.glob(f"**/*{ext}"))
+        image_files.extend(masks_path.glob(f"**/*{ext.upper()}"))
+    
+    # 정렬
+    image_files = sorted(set(image_files))
+    
+    print(f"  발견된 이미지 파일: {len(image_files)}개")
+    
+    for image_file in image_files:
+        try:
+            # 상대 경로 계산
+            relative_path = str(image_file.relative_to(masks_path))
             
-            try:
-                # 이미지 로드 및 임베딩 추출
-                image = Image.open(image_file)
-                embedding, expr_idx, expr_label = extract_embedding(model, image, device)
-                
-                # 상대 경로 저장
-                relative_path = str(image_file.relative_to(masks_path))
-                
-                mask_info = MaskInfo(
-                    path=relative_path,
-                    name=mask_name,
-                    embedding=embedding,
-                    expression_idx=expr_idx,
-                    expression_label=expr_label
-                )
-                mask_index.append(mask_info)
-                
+            # 마스크 이름 결정
+            # 1) 서브폴더가 있으면 폴더명 사용
+            # 2) flat 구조면 파일명에서 파싱
+            parts = relative_path.split(os.sep)
+            
+            if len(parts) > 1:
+                # 서브폴더 구조: 폴더명을 마스크 이름으로
+                mask_name = parts[0]
+                filename_expression = None
+            else:
+                # flat 구조: 파일명에서 파싱
+                mask_name, filename_expression = parse_mask_filename(image_file.name)
+            
+            # 이미지 로드 및 임베딩 추출
+            image = Image.open(image_file)
+            embedding, expr_idx, expr_label = extract_embedding(model, image, device)
+            
+            mask_info = MaskInfo(
+                path=relative_path,
+                name=mask_name,
+                embedding=embedding,
+                expression_idx=expr_idx,
+                expression_label=expr_label,
+                filename_expression=filename_expression
+            )
+            mask_index.append(mask_info)
+            
+            # 로그 출력
+            if filename_expression:
+                match_status = "✓" if filename_expression == expr_label else "≠"
+                print(f"  ✓ {relative_path} - 모델: {expr_label}, 파일명: {filename_expression} {match_status}")
+            else:
                 print(f"  ✓ {relative_path} - 표정: {expr_label}")
-                
-            except Exception as e:
-                print(f"  ✗ {image_file}: {e}")
-                continue
+            
+        except Exception as e:
+            print(f"  ✗ {image_file}: {e}")
+            continue
     
     print(f"인덱싱 완료: 총 {len(mask_index)}개 탈 이미지")
     
