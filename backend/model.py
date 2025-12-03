@@ -124,8 +124,8 @@ def load_model(checkpoint_path: str, device: torch.device) -> ExpressionResNet18
     # fc layer 교체 (num_classes가 다를 수 있음)
     resnet.fc = nn.Linear(512, num_classes)
     
-    # state_dict 로드
-    resnet.load_state_dict(state_dict, strict=True)
+    # state_dict 로드 (Colab과 동일하게 strict=False 사용)
+    resnet.load_state_dict(state_dict, strict=False)
     
     # ExpressionResNet18 인스턴스 생성 및 구조 복사
     model = ExpressionResNet18(
