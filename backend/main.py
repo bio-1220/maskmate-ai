@@ -37,7 +37,6 @@ device: torch.device = None
 model = None  # Fine-tuned model
 baseline_model = None  # Baseline (pretrained) ResNet18
 mask_index: List[MaskInfo] = []
-baseline_mask_index: List[MaskInfo] = []
 
 
 # ============== Pydantic 모델 ==============
@@ -120,52 +119,14 @@ def extract_baseline_embedding(model, image, device):
     return features.cpu().numpy(), expr_idx, expr_label
 
 
-def build_baseline_mask_index(masks_dir: str, model, device) -> List[MaskInfo]:
-    """Baseline 모델로 탈 인덱스 빌드"""
-    from mask_index import MaskInfo
-    import numpy as np
-    
-    masks_path = Path(masks_dir)
-    if not masks_path.exists():
-        return []
-    
-    mask_infos = []
-    image_files = list(masks_path.glob("*.jpg")) + list(masks_path.glob("*.png"))
-    
-    for img_path in image_files:
-        try:
-            filename = img_path.stem
-            parts = filename.rsplit("_", 1)
-            
-            if len(parts) == 2:
-                mask_name, expression = parts
-            else:
-                mask_name = filename
-                expression = None
-            
-            image = Image.open(img_path).convert("RGB")
-            embedding, expr_idx, _ = extract_baseline_embedding(model, image, device)
-            
-            if expression and expression in EXPRESSION_CLASSES:
-                expr_idx = EXPRESSION_CLASSES.index(expression)
-            
-            mask_infos.append(MaskInfo(
-                path=img_path.name,
-                name=mask_name,
-                embedding=embedding,
-                expression_idx=expr_idx
-            ))
-        except Exception as e:
-            print(f"Baseline mask indexing error {img_path}: {e}")
-    
-    return mask_infos
+# build_baseline_mask_index 제거 - baseline도 같은 mask_index 사용
 
 
 # ============== Lifespan (서버 시작/종료 시 실행) ==============
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """서버 시작 시 모델과 탈 인덱스 로드"""
-    global device, model, baseline_model, mask_index, baseline_mask_index
+    global device, model, baseline_model, mask_index
     
     print("=" * 50)
     print("🎭 탈 추천 서버 초기화 중...")
@@ -187,15 +148,14 @@ async def lifespan(app: FastAPI):
     print("Baseline ResNet18 로드 중...")
     baseline_model = BaselineResNet18().to(device)
     baseline_model.eval()
-    baseline_mask_index = build_baseline_mask_index(MASKS_DIR, baseline_model, device)
+    print("✓ Baseline 모델 로드 완료")
     
     # 투표 디렉토리 생성
     os.makedirs(VOTES_DIR, exist_ok=True)
     
     print("=" * 50)
     print("✓ 서버 준비 완료!")
-    print(f"  - Fine-tuned 탈 이미지: {len(mask_index)}개")
-    print(f"  - Baseline 탈 이미지: {len(baseline_mask_index)}개")
+    print(f"  - 탈 이미지: {len(mask_index)}개")
     print("=" * 50)
     
     yield
@@ -229,8 +189,7 @@ async def root():
         "status": "ok",
         "model_loaded": model is not None,
         "baseline_loaded": baseline_model is not None,
-        "mask_count": len(mask_index),
-        "baseline_mask_count": len(baseline_mask_index)
+        "mask_count": len(mask_index)
     }
 
 
@@ -276,16 +235,16 @@ async def recommend(file: UploadFile = File(...)):
             expression_weight=EXPRESSION_WEIGHT
         )
         
-        # Baseline 모델 추천 (1등만)
+        # Baseline 모델 추천 (1등만) - 같은 mask_index 사용, 얼굴만 baseline으로
         baseline_top1 = None
-        if baseline_model is not None and baseline_mask_index:
+        if baseline_model is not None and mask_index:
             baseline_embedding, baseline_expr_idx, _ = extract_baseline_embedding(
                 baseline_model, image, device
             )
             baseline_recs = compute_recommendations(
                 face_embedding=baseline_embedding,
                 face_expression_idx=baseline_expr_idx,
-                mask_index=baseline_mask_index,
+                mask_index=mask_index,  # 같은 mask_index 사용
                 top_k=1,
                 cosine_weight=1.0,  # Baseline은 cosine만 사용
                 expression_weight=0.0
