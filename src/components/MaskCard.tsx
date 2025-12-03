@@ -20,15 +20,9 @@ interface MaskCardProps {
   maskExpression: string;
 }
 
-// 파일명에서 숫자를 제거하고 순수 탈 이름만 추출
-const extractMaskName = (filename: string): string => {
-  // 확장자 제거
-  const nameWithoutExt = filename.replace(/\.[^/.]+$/, '');
-  // 언더스코어로 분리하여 첫 부분(탈 이름) 추출
-  const parts = nameWithoutExt.split('_');
-  const rawName = parts[0];
-  // 숫자 제거 (예: 양반1 -> 양반, 각시2 -> 각시)
-  return rawName.replace(/\d+/g, '').trim();
+// 탈 이름에서 숫자만 제거 (예: 양반1 -> 양반)
+const extractMaskName = (name: string): string => {
+  return name.replace(/\d+/g, '').trim();
 };
 
 export const MaskCard: React.FC<MaskCardProps> = ({
