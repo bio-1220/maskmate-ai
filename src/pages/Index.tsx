@@ -1,10 +1,12 @@
 import React, { useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { ImageUploader } from '@/components/ImageUploader';
 import { MaskCard } from '@/components/MaskCard';
 import { CompactMaskCard } from '@/components/CompactMaskCard';
 import { LoadingState } from '@/components/LoadingState';
+import { VotingSection } from '@/components/VotingSection';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Info, Github } from 'lucide-react';
+import { Sparkles, Info, Github, BarChart3 } from 'lucide-react';
 import { RecommendationResponse, EXPRESSION_LABELS } from '@/types/recommendation';
 import { toast } from '@/hooks/use-toast';
 
@@ -84,14 +86,22 @@ const Index: React.FC = () => {
             </div>
             <h1 className="font-serif text-xl font-semibold text-foreground">탈 추천</h1>
           </div>
-          <a 
-            href="https://github.com" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="p-2 rounded-lg hover:bg-secondary transition-colors"
-          >
-            <Github className="w-5 h-5 text-muted-foreground" />
-          </a>
+          <div className="flex items-center gap-2">
+            <Link to="/results">
+              <Button variant="ghost" size="sm">
+                <BarChart3 className="w-4 h-4 mr-1" />
+                투표 결과
+              </Button>
+            </Link>
+            <a 
+              href="https://github.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="p-2 rounded-lg hover:bg-secondary transition-colors"
+            >
+              <Github className="w-5 h-5 text-muted-foreground" />
+            </a>
+          </div>
         </div>
       </header>
 
@@ -202,6 +212,15 @@ const Index: React.FC = () => {
             )}
           </div>
         </section>
+      )}
+
+      {/* Voting Section - Fine-tuned vs Baseline */}
+      {result && !isLoading && result.baseline_top1 && (
+        <VotingSection
+          finetunedTop1={result.recommendations[0]}
+          baselineTop1={result.baseline_top1}
+          apiBaseUrl={API_BASE_URL}
+        />
       )}
 
       {/* Footer */}
