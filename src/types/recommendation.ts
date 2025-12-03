@@ -10,6 +10,13 @@ export interface MaskRecommendation {
 export interface RecommendationResponse {
   face_expression: string;
   recommendations: MaskRecommendation[];
+  baseline_top1: MaskRecommendation | null;
+}
+
+export interface VoteResponse {
+  finetuned: number;
+  baseline: number;
+  total: number;
 }
 
 export const EXPRESSION_LABELS: Record<string, string> = {
