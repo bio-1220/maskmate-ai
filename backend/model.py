@@ -6,10 +6,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models, transforms
 from PIL import Image
-from typing import Tuple, Optional
+from typing import Tuple, List, Optional
 import numpy as np
 
-# 표정 클래스 정의 (모델 학습 시 사용된 순서와 일치해야 함)
+# 표정 클래스 정의 (기본값, checkpoint에서 덮어쓸 수 있음)
 EXPRESSION_CLASSES = ['angry', 'happy', 'natural', 'sad']
 NUM_CLASSES = len(EXPRESSION_CLASSES)
 
@@ -27,30 +27,24 @@ image_transform = transforms.Compose([
 class ExpressionResNet18(nn.Module):
     """
     ResNet18 기반 표정 분류 + Feature Extraction 모델
-    - backbone: ResNet18의 conv layers (feature extractor)
-    - fc: 표정 분류용 fully connected layer
+    - backbone: ResNet18의 fc 이전까지 (feature extractor)
+    - expression_classifier: 표정 분류용 fc layer
     """
-    def __init__(self, num_classes: int = NUM_CLASSES, pretrained: bool = False):
+    def __init__(self, num_classes: int = NUM_CLASSES, classes: Optional[List[str]] = None):
         super().__init__()
         
-        # ImageNet pretrained ResNet18 로드
-        base_model = models.resnet18(weights='IMAGENET1K_V1' if pretrained else None)
+        # 기본 ResNet18 구조 생성
+        resnet = models.resnet18(weights=None)
         
-        # backbone: avgpool까지 (512차원 feature 출력)
-        self.backbone = nn.Sequential(
-            base_model.conv1,
-            base_model.bn1,
-            base_model.relu,
-            base_model.maxpool,
-            base_model.layer1,
-            base_model.layer2,
-            base_model.layer3,
-            base_model.layer4,
-            base_model.avgpool,
-        )
+        # backbone: fc 이전까지 (avgpool 포함)
+        self.backbone = nn.Sequential(*list(resnet.children())[:-1])
         
         # 표정 분류 헤드
-        self.fc = nn.Linear(512, num_classes)
+        self.expression_classifier = nn.Linear(512, num_classes)
+        
+        # 클래스 정보 저장
+        self.classes = classes if classes is not None else EXPRESSION_CLASSES.copy()
+        self.num_classes = num_classes
     
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -58,17 +52,17 @@ class ExpressionResNet18(nn.Module):
             x: 입력 이미지 텐서 [B, 3, 224, 224]
         
         Returns:
-            logits: 표정 분류 로짓 [B, num_classes]
             features: 512차원 임베딩 [B, 512]
+            logits: 표정 분류 로짓 [B, num_classes]
         """
         # backbone으로 feature 추출
         features = self.backbone(x)
         features = features.view(features.size(0), -1)  # [B, 512]
         
         # 표정 분류
-        logits = self.fc(features)
+        logits = self.expression_classifier(features)
         
-        return logits, features
+        return features, logits
     
     def extract_features(self, x: torch.Tensor) -> torch.Tensor:
         """Feature만 추출 (L2 정규화 포함)"""
@@ -81,14 +75,18 @@ class ExpressionResNet18(nn.Module):
     def predict_expression(self, x: torch.Tensor) -> Tuple[int, str]:
         """표정 예측"""
         with torch.no_grad():
-            logits, _ = self.forward(x)
+            features, logits = self.forward(x)
             pred_idx = torch.argmax(logits, dim=1).item()
-        return pred_idx, EXPRESSION_CLASSES[pred_idx]
+        return pred_idx, self.classes[pred_idx]
 
 
 def load_model(checkpoint_path: str, device: torch.device) -> ExpressionResNet18:
     """
     체크포인트에서 모델 로드
+    
+    지원하는 체크포인트 형식:
+    1) {"state_dict": <resnet18 state_dict>, "classes": ["angry", "happy", ...]}
+    2) 직접 state_dict (torchvision resnet18 키 형식)
     
     Args:
         checkpoint_path: .pth 파일 경로
@@ -97,21 +95,55 @@ def load_model(checkpoint_path: str, device: torch.device) -> ExpressionResNet18
     Returns:
         로드된 모델 (eval 모드)
     """
-    model = ExpressionResNet18(num_classes=NUM_CLASSES, pretrained=False)
+    # 체크포인트 로드
+    ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    
+    # state_dict와 classes 추출
+    if isinstance(ckpt, dict) and "state_dict" in ckpt:
+        state_dict = ckpt["state_dict"]
+        classes = ckpt.get("classes", None)
+    else:
+        state_dict = ckpt
+        classes = None
+    
+    # classes가 있으면 전역 변수도 업데이트
+    if classes is not None:
+        global EXPRESSION_CLASSES
+        EXPRESSION_CLASSES = classes
+    
+    # 임시 resnet18에 state_dict 로드
+    resnet = models.resnet18(weights=None)
+    
+    # fc layer의 출력 차원 확인
+    fc_weight_key = 'fc.weight'
+    if fc_weight_key in state_dict:
+        num_classes = state_dict[fc_weight_key].shape[0]
+    else:
+        num_classes = NUM_CLASSES
+    
+    # fc layer 교체 (num_classes가 다를 수 있음)
+    resnet.fc = nn.Linear(512, num_classes)
     
     # state_dict 로드
-    state_dict = torch.load(checkpoint_path, map_location=device, weights_only=True)
+    resnet.load_state_dict(state_dict, strict=True)
     
-    # 'module.' prefix 제거 (DataParallel로 학습된 경우)
-    if any(k.startswith('module.') for k in state_dict.keys()):
-        state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
+    # ExpressionResNet18 인스턴스 생성 및 구조 복사
+    model = ExpressionResNet18(
+        num_classes=num_classes,
+        classes=classes if classes else EXPRESSION_CLASSES
+    )
     
-    model.load_state_dict(state_dict)
+    # backbone과 classifier를 로드된 resnet에서 복사
+    model.backbone = nn.Sequential(*list(resnet.children())[:-1])
+    model.expression_classifier = resnet.fc
+    
+    # device로 이동 및 eval 모드
     model = model.to(device)
     model.eval()
     
     print(f"✓ 모델 로드 완료: {checkpoint_path}")
     print(f"✓ Device: {device}")
+    print(f"✓ Classes: {model.classes}")
     
     return model
 
@@ -159,14 +191,14 @@ def extract_embedding(
     tensor = preprocess_image(image, device)
     
     with torch.no_grad():
-        logits, features = model(tensor)
+        features, logits = model(tensor)
         
         # L2 정규화
         features = F.normalize(features, p=2, dim=1)
         
         # 표정 예측
         expression_idx = torch.argmax(logits, dim=1).item()
-        expression_label = EXPRESSION_CLASSES[expression_idx]
+        expression_label = model.classes[expression_idx]
         
         embedding = features.cpu().numpy().flatten()
     
