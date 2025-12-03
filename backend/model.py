@@ -203,3 +203,7 @@ def extract_embedding(
         embedding = features.cpu().numpy().flatten()
     
     return embedding, expression_idx, expression_label
+
+
+# Alias for backward compatibility
+preprocess = lambda image: image_transform(image.convert('RGB') if image.mode != 'RGB' else image)
