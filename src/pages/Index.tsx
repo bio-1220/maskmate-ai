@@ -14,13 +14,13 @@ const Index: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<RecommendationResponse | null>(null);
-  const [expandedCard, setExpandedCard] = useState<number | null>(null);
+  const [featuredIndex, setFeaturedIndex] = useState<number>(0);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const handleImageSelect = (file: File) => {
     setSelectedFile(file);
     setResult(null);
-    setExpandedCard(null);
+    setFeaturedIndex(0);
   };
 
   const handleRecommend = async () => {
@@ -162,55 +162,42 @@ const Index: React.FC = () => {
               </h3>
             </div>
             
-            {/* 1위 - 크게 표시 */}
-            {result.recommendations[0] && (
-              <div className="max-w-md mx-auto mb-8">
+            {/* 현재 선택된 카드 - 크게 표시 */}
+            {result.recommendations[featuredIndex] && (
+              <div className="max-w-md mx-auto mb-8 animate-fade-up" key={`featured-${featuredIndex}`}>
                 <MaskCard
-                  rank={1}
-                  maskName={result.recommendations[0].mask_name}
-                  maskImage={`${API_BASE_URL}/masks/${encodeURIComponent(result.recommendations[0].mask_path)}`}
-                  cosineSimilarity={result.recommendations[0].cosine_similarity}
-                  expressionMatch={result.recommendations[0].expression_match}
-                  combinedScore={result.recommendations[0].combined_score}
+                  rank={featuredIndex + 1}
+                  maskName={result.recommendations[featuredIndex].mask_name}
+                  maskImage={`${API_BASE_URL}/masks/${encodeURIComponent(result.recommendations[featuredIndex].mask_path)}`}
+                  cosineSimilarity={result.recommendations[featuredIndex].cosine_similarity}
+                  expressionMatch={result.recommendations[featuredIndex].expression_match}
+                  combinedScore={result.recommendations[featuredIndex].combined_score}
                   faceExpression={EXPRESSION_LABELS[result.face_expression] || result.face_expression}
-                  maskExpression={EXPRESSION_LABELS[result.recommendations[0].mask_expression] || result.recommendations[0].mask_expression}
+                  maskExpression={EXPRESSION_LABELS[result.recommendations[featuredIndex].mask_expression] || result.recommendations[featuredIndex].mask_expression}
                 />
               </div>
             )}
 
-            {/* 2위, 3위 - 간략하게 표시, 클릭 시 확장 */}
+            {/* 나머지 카드들 - 간략하게 표시, 클릭 시 위치 교체 */}
             {result.recommendations.length > 1 && (
               <div className="max-w-2xl mx-auto">
                 <h4 className="text-center text-sm text-muted-foreground mb-4">다른 추천</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {result.recommendations.slice(1).map((rec, index) => (
-                    <CompactMaskCard
-                      key={rec.mask_path}
-                      rank={index + 2}
-                      maskName={rec.mask_name}
-                      maskImage={`${API_BASE_URL}/masks/${encodeURIComponent(rec.mask_path)}`}
-                      combinedScore={rec.combined_score}
-                      isExpanded={expandedCard === index + 2}
-                      onClick={() => setExpandedCard(expandedCard === index + 2 ? null : index + 2)}
-                    />
-                  ))}
+                  {result.recommendations.map((rec, index) => {
+                    if (index === featuredIndex) return null;
+                    return (
+                      <CompactMaskCard
+                        key={rec.mask_path}
+                        rank={index + 1}
+                        maskName={rec.mask_name}
+                        maskImage={`${API_BASE_URL}/masks/${encodeURIComponent(rec.mask_path)}`}
+                        combinedScore={rec.combined_score}
+                        isExpanded={false}
+                        onClick={() => setFeaturedIndex(index)}
+                      />
+                    );
+                  })}
                 </div>
-
-                {/* 확장된 카드 상세 정보 */}
-                {expandedCard && result.recommendations[expandedCard - 1] && (
-                  <div className="mt-6 animate-fade-up">
-                    <MaskCard
-                      rank={expandedCard}
-                      maskName={result.recommendations[expandedCard - 1].mask_name}
-                      maskImage={`${API_BASE_URL}/masks/${encodeURIComponent(result.recommendations[expandedCard - 1].mask_path)}`}
-                      cosineSimilarity={result.recommendations[expandedCard - 1].cosine_similarity}
-                      expressionMatch={result.recommendations[expandedCard - 1].expression_match}
-                      combinedScore={result.recommendations[expandedCard - 1].combined_score}
-                      faceExpression={EXPRESSION_LABELS[result.face_expression] || result.face_expression}
-                      maskExpression={EXPRESSION_LABELS[result.recommendations[expandedCard - 1].mask_expression] || result.recommendations[expandedCard - 1].mask_expression}
-                    />
-                  </div>
-                )}
               </div>
             )}
           </div>

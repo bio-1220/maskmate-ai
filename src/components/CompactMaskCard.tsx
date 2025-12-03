@@ -80,7 +80,7 @@ export const CompactMaskCard: React.FC<CompactMaskCardProps> = ({
       {/* Expand hint */}
       <div className="px-4 pb-3 text-center">
         <span className="text-xs text-muted-foreground">
-          {isExpanded ? '접기' : '클릭하여 자세히 보기'}
+          클릭하여 자세히 보기
         </span>
       </div>
     </div>
