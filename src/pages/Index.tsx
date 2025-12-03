@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { ImageUploader } from '@/components/ImageUploader';
 import { MaskCard } from '@/components/MaskCard';
+import { CompactMaskCard } from '@/components/CompactMaskCard';
 import { LoadingState } from '@/components/LoadingState';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Info, Github } from 'lucide-react';
@@ -13,11 +14,13 @@ const Index: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<RecommendationResponse | null>(null);
+  const [expandedCard, setExpandedCard] = useState<number | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const handleImageSelect = (file: File) => {
     setSelectedFile(file);
     setResult(null);
+    setExpandedCard(null);
   };
 
   const handleRecommend = async () => {
@@ -159,21 +162,57 @@ const Index: React.FC = () => {
               </h3>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-              {result.recommendations.map((rec, index) => (
+            {/* 1위 - 크게 표시 */}
+            {result.recommendations[0] && (
+              <div className="max-w-md mx-auto mb-8">
                 <MaskCard
-                  key={rec.mask_path}
-                  rank={index + 1}
-                  maskName={rec.mask_name}
-                  maskImage={`${API_BASE_URL}/masks/${encodeURIComponent(rec.mask_path)}`}
-                  cosineSimilarity={rec.cosine_similarity}
-                  expressionMatch={rec.expression_match}
-                  combinedScore={rec.combined_score}
+                  rank={1}
+                  maskName={result.recommendations[0].mask_name}
+                  maskImage={`${API_BASE_URL}/masks/${encodeURIComponent(result.recommendations[0].mask_path)}`}
+                  cosineSimilarity={result.recommendations[0].cosine_similarity}
+                  expressionMatch={result.recommendations[0].expression_match}
+                  combinedScore={result.recommendations[0].combined_score}
                   faceExpression={EXPRESSION_LABELS[result.face_expression] || result.face_expression}
-                  maskExpression={EXPRESSION_LABELS[rec.mask_expression] || rec.mask_expression}
+                  maskExpression={EXPRESSION_LABELS[result.recommendations[0].mask_expression] || result.recommendations[0].mask_expression}
                 />
-              ))}
-            </div>
+              </div>
+            )}
+
+            {/* 2위, 3위 - 간략하게 표시, 클릭 시 확장 */}
+            {result.recommendations.length > 1 && (
+              <div className="max-w-2xl mx-auto">
+                <h4 className="text-center text-sm text-muted-foreground mb-4">다른 추천</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {result.recommendations.slice(1).map((rec, index) => (
+                    <CompactMaskCard
+                      key={rec.mask_path}
+                      rank={index + 2}
+                      maskName={rec.mask_name}
+                      maskImage={`${API_BASE_URL}/masks/${encodeURIComponent(rec.mask_path)}`}
+                      combinedScore={rec.combined_score}
+                      isExpanded={expandedCard === index + 2}
+                      onClick={() => setExpandedCard(expandedCard === index + 2 ? null : index + 2)}
+                    />
+                  ))}
+                </div>
+
+                {/* 확장된 카드 상세 정보 */}
+                {expandedCard && result.recommendations[expandedCard - 1] && (
+                  <div className="mt-6 animate-fade-up">
+                    <MaskCard
+                      rank={expandedCard}
+                      maskName={result.recommendations[expandedCard - 1].mask_name}
+                      maskImage={`${API_BASE_URL}/masks/${encodeURIComponent(result.recommendations[expandedCard - 1].mask_path)}`}
+                      cosineSimilarity={result.recommendations[expandedCard - 1].cosine_similarity}
+                      expressionMatch={result.recommendations[expandedCard - 1].expression_match}
+                      combinedScore={result.recommendations[expandedCard - 1].combined_score}
+                      faceExpression={EXPRESSION_LABELS[result.face_expression] || result.face_expression}
+                      maskExpression={EXPRESSION_LABELS[result.recommendations[expandedCard - 1].mask_expression] || result.recommendations[expandedCard - 1].mask_expression}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </section>
       )}
