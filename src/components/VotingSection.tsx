@@ -52,7 +52,7 @@ export const VotingSection: React.FC<VotingSectionProps> = ({
     }
   };
 
-  const cleanMaskName = (name: string) => name.replace(/_/g, ' ').replace(/\.(jpg|png|jpeg)$/i, '');
+  const cleanMaskName = (name: string) => name.replace(/_/g, ' ').replace(/\.(jpg|png|jpeg)$/i, '').replace(/\d+/g, '').trim();
 
   return (
     <section className="py-12 border-t border-border/50">
