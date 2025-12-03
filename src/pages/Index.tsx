@@ -8,7 +8,7 @@ import { Sparkles, Info, Github } from 'lucide-react';
 import { RecommendationResponse, EXPRESSION_LABELS } from '@/types/recommendation';
 import { toast } from '@/hooks/use-toast';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = 'https://sogangparrot-api.ngrok.app';
 
 const Index: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
