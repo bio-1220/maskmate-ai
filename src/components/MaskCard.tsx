@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, X, Sparkles, ChevronDown, ExternalLink, Play, BookOpen } from 'lucide-react';
+import { Check, X, Sparkles, ChevronDown, ExternalLink, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { findMaskInfo, MaskDetailInfo } from '@/data/maskInfo';
 import {
@@ -179,39 +179,27 @@ export const MaskCard: React.FC<MaskCardProps> = ({
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {maskInfo.description}
                 </p>
-                {maskInfo.character && (
-                  <p className="text-xs text-primary/80 italic">
-                    "{maskInfo.character}"
-                  </p>
-                )}
               </div>
 
-              {/* Dance Description */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <Play className="w-4 h-4 text-gold" />
-                  탈춤에서의 역할
-                </h4>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {maskInfo.danceDescription}
+              {/* Dance Role - One line */}
+              {maskInfo.danceRole && (
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">역할:</span> {maskInfo.danceRole}
                 </p>
-              </div>
+              )}
 
-              {/* Links */}
-              <div className="flex flex-wrap gap-2 pt-2">
-                {maskInfo.videoUrl && (
-                  <a
-                    href={maskInfo.videoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
-                  >
-                    <Play className="w-3 h-3" />
-                    영상 보기
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                )}
-                {maskInfo.wikiUrl && (
+              {/* Character Quote */}
+              {maskInfo.quote && (
+                <div className="bg-secondary/50 rounded-lg p-3 border-l-2 border-primary">
+                  <p className="text-sm text-foreground italic">
+                    "{maskInfo.quote}"
+                  </p>
+                </div>
+              )}
+
+              {/* Wiki Link */}
+              {maskInfo.wikiUrl && (
+                <div className="pt-2">
                   <a
                     href={maskInfo.wikiUrl}
                     target="_blank"
@@ -222,8 +210,8 @@ export const MaskCard: React.FC<MaskCardProps> = ({
                     더 알아보기
                     <ExternalLink className="w-3 h-3" />
                   </a>
-                )}
-              </div>
+                </div>
+              )}
             </CollapsibleContent>
           </Collapsible>
         )}
