@@ -9,42 +9,10 @@ import { toast } from '@/hooks/use-toast';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-// 데모용 목업 데이터
-const MOCK_RESULT: RecommendationResponse = {
-  face_expression: 'happy',
-  recommendations: [
-    {
-      mask_path: '양반_happy.jpg',
-      mask_name: '양반',
-      cosine_similarity: 0.892,
-      expression_match: true,
-      combined_score: 0.924,
-      mask_expression: 'happy',
-    },
-    {
-      mask_path: '부네_happy.jpg',
-      mask_name: '부네',
-      cosine_similarity: 0.834,
-      expression_match: true,
-      combined_score: 0.884,
-      mask_expression: 'happy',
-    },
-    {
-      mask_path: '각시_natural.jpg',
-      mask_name: '각시',
-      cosine_similarity: 0.801,
-      expression_match: false,
-      combined_score: 0.761,
-      mask_expression: 'natural',
-    },
-  ],
-};
-
 const Index: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  // 데모 모드: 목업 데이터로 결과 표시
-  const [result, setResult] = useState<RecommendationResponse | null>(MOCK_RESULT);
+  const [result, setResult] = useState<RecommendationResponse | null>(null);
 
   const handleImageSelect = (file: File) => {
     setSelectedFile(file);
