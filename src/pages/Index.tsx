@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ImageUploader } from '@/components/ImageUploader';
 import { MaskCard } from '@/components/MaskCard';
 import { LoadingState } from '@/components/LoadingState';
@@ -13,6 +13,7 @@ const Index: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<RecommendationResponse | null>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   const handleImageSelect = (file: File) => {
     setSelectedFile(file);
@@ -50,8 +51,13 @@ const Index: React.FC = () => {
       
       toast({
         title: "추천 완료!",
-        description: `당신의 표정: ${EXPRESSION_LABELS[data.face_expression] || data.face_expression}`,
+        description: "당신에게 어울리는 탈을 찾았습니다.",
       });
+
+      // 결과 섹션으로 스크롤
+      setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
     } catch (error) {
       console.error('Recommendation error:', error);
       toast({
@@ -145,15 +151,12 @@ const Index: React.FC = () => {
 
       {/* Results Section */}
       {result && !isLoading && (
-        <section className="py-12">
+        <section ref={resultsRef} className="py-12">
           <div className="container mx-auto px-4">
             <div className="text-center mb-8">
               <h3 className="font-serif text-2xl font-semibold text-foreground mb-2">
                 추천 결과
               </h3>
-              <p className="text-muted-foreground">
-                감지된 표정: <span className="text-primary font-medium">{EXPRESSION_LABELS[result.face_expression] || result.face_expression}</span>
-              </p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
