@@ -166,6 +166,24 @@ export const MASK_INFO: Record<string, MaskDetailInfo> = {
     quote: '이런 좋은 풍류정을 만났으니 한바탕 놀고 가리라!',
     wikiUrl: 'https://ko.wikipedia.org/wiki/봉산탈춤'
   },
+  mokjung: {
+    name: 'mokjung',
+    koreanName: '목중',
+    origin: '봉산탈춤',
+    description: '팔먹중 중 다섯째 먹중으로, 목이 긴 형상이 특징입니다. 다른 먹중들과 함께 유식한 대사를 낭송하며 화려한 춤을 선보입니다.',
+    danceRole: '팔먹중춤에서 다섯째로 등장하여 활달한 춤을 추는 역할',
+    quote: '목이 길어 세상을 멀리 내다보노라!',
+    wikiUrl: 'https://ko.wikipedia.org/wiki/봉산탈춤'
+  },
+  omjung: {
+    name: 'omjung',
+    koreanName: '옴중',
+    origin: '봉산탈춤',
+    description: '팔먹중 중 셋째, 넷째 먹중으로, 온몸에 옴이 난 형상이 특징입니다. 귀면형의 탈로 요철 굴곡이 심하며 익살스러운 모습을 보여줍니다.',
+    danceRole: '팔먹중춤에서 셋째, 넷째로 등장하여 익살스러운 춤을 추는 역할',
+    quote: '온몸이 가려워도 춤은 멈출 수 없다!',
+    wikiUrl: 'https://ko.wikipedia.org/wiki/봉산탈춤'
+  },
   sangja: {
     name: 'sangja',
     koreanName: '상좌',
