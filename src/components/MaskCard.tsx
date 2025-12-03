@@ -20,6 +20,17 @@ interface MaskCardProps {
   maskExpression: string;
 }
 
+// 파일명에서 숫자를 제거하고 순수 탈 이름만 추출
+const extractMaskName = (filename: string): string => {
+  // 확장자 제거
+  const nameWithoutExt = filename.replace(/\.[^/.]+$/, '');
+  // 언더스코어로 분리하여 첫 부분(탈 이름) 추출
+  const parts = nameWithoutExt.split('_');
+  const rawName = parts[0];
+  // 숫자 제거 (예: 양반1 -> 양반, 각시2 -> 각시)
+  return rawName.replace(/\d+/g, '').trim();
+};
+
 export const MaskCard: React.FC<MaskCardProps> = ({
   rank,
   maskName,
@@ -31,7 +42,9 @@ export const MaskCard: React.FC<MaskCardProps> = ({
   maskExpression,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const maskInfo = findMaskInfo(maskName);
+  // 파일명에서 순수 탈 이름 추출
+  const cleanMaskName = extractMaskName(maskName);
+  const maskInfo = findMaskInfo(cleanMaskName);
 
   const getRankStyle = (rank: number) => {
     switch (rank) {
@@ -90,7 +103,7 @@ export const MaskCard: React.FC<MaskCardProps> = ({
         {/* Mask Name */}
         <div className="flex items-center justify-between">
           <h3 className="font-serif text-xl font-semibold text-foreground">
-            {maskInfo?.koreanName || maskName}
+            {maskInfo?.koreanName || cleanMaskName}
           </h3>
           {maskInfo && (
             <span className="text-xs text-muted-foreground px-2 py-1 bg-secondary rounded-full">
@@ -143,13 +156,6 @@ export const MaskCard: React.FC<MaskCardProps> = ({
             </div>
           </div>
 
-          {/* Expression Details */}
-          <div className="pt-3 border-t border-border">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>얼굴: <span className="text-foreground font-medium">{faceExpression}</span></span>
-              <span>탈: <span className="text-foreground font-medium">{maskExpression}</span></span>
-            </div>
-          </div>
         </div>
 
         {/* Expandable Details */}
