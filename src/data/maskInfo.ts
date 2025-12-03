@@ -228,19 +228,29 @@ export const MASK_INFO: Record<string, MaskDetailInfo> = {
   }
 };
 
-// 탈 이름으로 정보 찾기 (부분 매칭 지원)
+// 탈 이름으로 정보 찾기 (파일명에서 추출된 이름 지원)
 export function findMaskInfo(maskName: string): MaskDetailInfo | null {
-  const normalizedName = maskName.toLowerCase().replace(/[^a-z가-힣]/g, '');
+  // 숫자 제거 및 정규화 (예: 양반1 -> 양반, Yangban2 -> yangban)
+  const cleanName = maskName.replace(/\d+/g, '').trim();
+  const normalizedName = cleanName.toLowerCase().replace(/[^a-z가-힣]/g, '');
   
-  // 정확한 매칭
+  // 정확한 key 매칭 (영문)
   if (MASK_INFO[normalizedName]) {
     return MASK_INFO[normalizedName];
   }
   
+  // 한글 이름으로 정확한 매칭
+  for (const [key, info] of Object.entries(MASK_INFO)) {
+    if (info.koreanName === cleanName || info.koreanName === normalizedName) {
+      return info;
+    }
+  }
+  
   // 부분 매칭 (탈 이름이 포함된 경우)
   for (const [key, info] of Object.entries(MASK_INFO)) {
+    const koreanNameNormalized = info.koreanName.toLowerCase();
     if (normalizedName.includes(key) || key.includes(normalizedName) ||
-        normalizedName.includes(info.koreanName) || info.koreanName.includes(normalizedName)) {
+        normalizedName.includes(koreanNameNormalized) || koreanNameNormalized.includes(normalizedName)) {
       return info;
     }
   }
